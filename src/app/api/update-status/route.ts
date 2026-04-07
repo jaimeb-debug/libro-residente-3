@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import credentials from '../../../../credentials.json';
+// import credentials from '../../../../credentials.json';
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
 
 export async function POST(req: Request) {
   try {
