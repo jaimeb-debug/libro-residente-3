@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import credentials from '../../../../credentials.json';
+
+// 1. ELIMINAMOS la importación de credentials.json que causaba el error
 
 export async function POST(req: Request) {
   try {
@@ -10,10 +11,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Faltan datos requeridos' }, { status: 400 });
     }
 
+    // 2. LEEMOS las credenciales desde la variable de entorno
+    // Usamos JSON.parse para convertir el texto en un objeto de JavaScript
+    const credentialsEnv = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
+
     const auth = new google.auth.GoogleAuth({
       credentials: {
-        client_email: credentials.client_email,
-        private_key: credentials.private_key,
+        client_email: credentialsEnv.client_email,
+        // Reemplazamos los posibles saltos de línea mal formateados en la clave privada
+        private_key: credentialsEnv.private_key?.replace(/\\n/g, '\n'),
       },
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
@@ -26,7 +32,7 @@ export async function POST(req: Request) {
       spreadsheetId,
       range: "'OTROS CURSOS'!A:A",
     });
-    
+
     const rows = getRes.data.values || [];
     const nextNumber = rows.length;
     const now = new Date().toISOString();
