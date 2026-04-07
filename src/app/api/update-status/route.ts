@@ -4,9 +4,9 @@ import credentials from '../../../../credentials.json';
 
 export async function POST(req: Request) {
   try {
-    const { spreadsheetId, sheetName, updates } = await req.json();
+    const { spreadsheetId, updates } = await req.json();
 
-    if (!spreadsheetId || !sheetName || !updates) {
+    if (!spreadsheetId || !updates) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
@@ -28,20 +28,22 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     const data: any[] = [];
     
-    Object.keys(updates).forEach((rowIdx) => {
-      const { value, statusCol } = updates[rowIdx];
+    Object.keys(updates).forEach((key) => {
+      // The key is now guaranteed to be in the format "SHEET_NAME::ROW_IDX"
+      const [sheetName, rowIdx] = key.split('::');
+      const { value, statusCol } = updates[key];
       // statusCol is integer (e.g. 6 for F, 4 for D)
       const colLetter = String.fromCharCode(64 + statusCol); 
       
       // 1. El cambio de estado solicitado
       data.push({
-        range: `${sheetName}!${colLetter}${rowIdx}`,
+        range: `'${sheetName}'!${colLetter}${rowIdx}`,
         values: [[value]],
       });
 
       // 2. Marca de tiempo automática en columna L (12ava columna)
       data.push({
-        range: `${sheetName}!L${rowIdx}`,
+        range: `'${sheetName}'!L${rowIdx}`,
         values: [[now]],
       });
     });

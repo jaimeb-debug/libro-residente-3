@@ -119,9 +119,10 @@ export default function Home() {
   };
 
   const handleUpdateStatus = (rowIdx: string, newStatus: string, statusCol: number) => {
+    const key = `${activeTab}::${rowIdx}`;
     setUpdates(prev => ({
       ...prev,
-      [rowIdx]: { value: newStatus, statusCol }
+      [key]: { value: newStatus, statusCol }
     }));
   };
 
@@ -129,32 +130,35 @@ export default function Home() {
     if (Object.keys(updates).length === 0) return;
     setSaving(true);
     try {
+      // Send the entire updates object without filtering
       const res = await fetch('/api/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           spreadsheetId,
-          sheetName: activeTab,
-          updates
+          updates: updates // Send the whole thing. the api extracts sheetName from the composite keys
         })
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
 
+      // Successfully saved to backend. Now update local react state.
       const newData = { ...data };
-      Object.keys(updates).forEach(rowIdx => {
-        Object.keys(newData[activeTab]).forEach(domainKey => {
-          const comps = newData[activeTab][domainKey];
-          const compIndex = comps.findIndex((c: any) => c.rowIdx == rowIdx);
-          if (compIndex > -1) {
-            newData[activeTab][domainKey][compIndex].situacion = updates[rowIdx].value;
-          }
-        });
+      Object.keys(updates).forEach(key => {
+        const [sheetName, rowIdx] = key.split('::');
+        if (newData[sheetName]) {
+          Object.keys(newData[sheetName]).forEach(domainKey => {
+            const comps = newData[sheetName][domainKey];
+            const compIndex = comps.findIndex((c: any) => c.rowIdx.toString() === rowIdx);
+            if (compIndex > -1) {
+              newData[sheetName][domainKey][compIndex].situacion = updates[key].value;
+            }
+          });
+        }
       });
       setData(newData);
+      // Clear ALL pending changes since they were all saved
       setUpdates({});
-      // Optional: notification
-      // alert("✅ ¡Cambios guardados correctmente!");
     } catch (err: any) {
       alert("Error guardando: " + err.message);
     } finally {
@@ -347,14 +351,22 @@ export default function Home() {
     : activeTab === "CURSOS"
     ? [...Object.values(data["CURSOS"] || {}).flat(), ...Object.values(data["OTROS CURSOS"] || {}).flat()]
     : Object.values(data[activeTab] || {}).flat() as any[];
-  const stats = {
-    total: allCompsInTab.length,
-    progreso: allCompsInTab.filter(c => (updates[c.rowIdx]?.value || c.situacion || "").toUpperCase() === "EN PROGRESO").length,
-    conseguido: allCompsInTab.filter(c => (updates[c.rowIdx]?.value || c.situacion || "").toUpperCase() === "CONSEGUIDO").length,
-    no_conseguido: allCompsInTab.filter(c => (updates[c.rowIdx]?.value || c.situacion || "").toUpperCase() === "NO CONSEGUIDO").length,
+  const getEffectiveStatus = (c: any) => {
+    const pending = updates[`${activeTab}::${c.rowIdx}`]?.value;
+    if (pending) return pending.toUpperCase();
+    return (c.situacion && c.situacion.trim()) ? c.situacion.toUpperCase() : "EN PROGRESO";
   };
 
-  const hasUnsavedChanges = Object.keys(updates).length > 0;
+  const stats = {
+    total: allCompsInTab.length,
+    progreso: allCompsInTab.filter(c => getEffectiveStatus(c) === "EN PROGRESO").length,
+    conseguido: allCompsInTab.filter(c => getEffectiveStatus(c) === "CONSEGUIDO").length,
+    no_conseguido: allCompsInTab.filter(c => getEffectiveStatus(c) === "NO CONSEGUIDO").length,
+  };
+
+  const tabUpdatesCount = Object.keys(updates).filter(k => k.startsWith(`${activeTab}::`)).length;
+  const globalUpdatesCount = Object.keys(updates).length;
+  const hasUnsavedChanges = globalUpdatesCount > 0;
 
   return (
     <div className="app-container">
@@ -507,7 +519,7 @@ export default function Home() {
 
             if (showOnlyPending && activeTab !== "CURSOS" && activeTab !== "SESIONES") {
               comps = comps.filter((c: any) => {
-                const status = (updates[c.rowIdx.toString()]?.value || c.situacion || "").toUpperCase();
+                const status = (updates[`${activeTab}::${c.rowIdx}`]?.value || c.situacion || "").toUpperCase();
                 return status !== "CONSEGUIDO" && status !== "REALIZADO";
               });
             }
@@ -532,7 +544,8 @@ export default function Home() {
                 <div className="domain-competencies">
                   {comps.map((comp: any) => {
                     const rowId = comp.rowIdx.toString();
-                    const currentStatus = updates[rowId]?.value || (comp.situacion ? comp.situacion.toUpperCase() : 'EN PROGRESO');
+                    const updateKey = `${activeTab}::${rowId}`;
+                    const currentStatus = updates[updateKey]?.value || (comp.situacion ? comp.situacion.toUpperCase() : 'EN PROGRESO');
                     const hasExtraInfo = comp.actividad || comp.recomendaciones;
 
                     // Skip empty rows or placeholders in Sesiones Impartidas if they don't have a real title
@@ -755,10 +768,10 @@ export default function Home() {
         <div className="floating-save-panel animate-fade-in">
           <div style={{ flex: 1, color: '#f8fafc', fontWeight: 500 }}>
             <span style={{ color: '#fbbf24', marginRight: '8px' }}>⚠️</span>
-            Tienes {Object.keys(updates).length} cambio(s) sin guardar en esta pestaña.
+            Tienes {globalUpdatesCount} cambio(s) pendiente(s) de guardar.
           </div>
-          <button onClick={handleSave} className="btn-primary" disabled={saving}>
-            {saving ? 'Guardando en la Nube...' : '💾 Guardar Progreso'}
+          <button onClick={handleSave} className="btn-primary" disabled={saving || globalUpdatesCount === 0}>
+            {saving ? 'Guardando en la Nube...' : '💾 Guardar Todos los Cambios'}
           </button>
         </div>
       )}
