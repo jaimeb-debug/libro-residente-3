@@ -33,6 +33,15 @@ const SHEET_LABELS: Record<string, string> = {
 
 const SITUACION_OPTIONS = ["EN PROGRESO", "CONSEGUIDO", "NO CONSEGUIDO"];
 
+const MAIN_SECTIONS = [
+  { key: "Datos", icon: "📋", label: "Datos" },
+  { key: "Entrevistas", icon: "🗣️", label: "Entrevistas" },
+  { key: "Itinerario", icon: "🗺️", label: "Itinerario" },
+  { key: "Competencias", icon: "🎯", label: "Competencias" },
+  { key: "Actividades", icon: "📌", label: "Actividades obligatorias" },
+  { key: "Otros", icon: "📁", label: "Otros" },
+];
+
 export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
@@ -53,6 +62,173 @@ export default function Home() {
   const [lastMeetingDate, setLastMeetingDate] = useState<string | null>(null);
   const [filterRecent, setFilterRecent] = useState(false);
   const [settingMeetingDate, setSettingMeetingDate] = useState(false);
+  const [activeSection, setActiveSection] = useState("Competencias");
+
+  // Datos form state
+  const [datosForm, setDatosForm] = useState({
+    unidadDocente: { nombre: '', ccaa: '', anioInicio: '', anioFinal: '', email: '' },
+    residente: { nombre: '', apellido1: '', apellido2: '', email: '' },
+    tutor: { nombre: '', apellido1: '', apellido2: '', email: '' },
+  });
+  const [datosLoaded, setDatosLoaded] = useState(false);
+  const [datosLoading, setDatosLoading] = useState(false);
+  const [datosSaving, setDatosSaving] = useState(false);
+  const [rowMapping, setRowMapping] = useState<any>(null);
+
+  // Entrevistas state
+  const [entrevistasForm, setEntrevistasForm] = useState<any[]>([]);
+  const [entrevistasLoaded, setEntrevistasLoaded] = useState(false);
+  const [entrevistasLoading, setEntrevistasLoading] = useState(false);
+  const [entrevistasSaving, setEntrevistasSaving] = useState(false);
+
+  // Itinerario state
+  const [itinerarioForm, setItinerarioForm] = useState<any[]>([]);
+  const [itinerarioLoaded, setItinerarioLoaded] = useState(false);
+  const [itinerarioLoading, setItinerarioLoading] = useState(false);
+  const [itinerarioSaving, setItinerarioSaving] = useState(false);
+  const [visibleItinRows, setVisibleItinRows] = useState<Record<string, number>>({});
+
+  // Load datos when switching to Datos section
+  const loadDatos = async () => {
+    if (!spreadsheetId) return;
+    setDatosLoading(true);
+    try {
+      const res = await fetch('/api/get-datos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setDatosForm(result.datos);
+        setRowMapping(result.rowMapping);
+        setDatosLoaded(true);
+      }
+    } catch (err) {
+      console.error('Error loading datos:', err);
+    } finally {
+      setDatosLoading(false);
+    }
+  };
+
+  const loadEntrevistas = async () => {
+    if (!spreadsheetId) return;
+    setEntrevistasLoading(true);
+    try {
+      const res = await fetch('/api/get-entrevistas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setEntrevistasForm(result.entrevistas);
+        setEntrevistasLoaded(true);
+      }
+    } catch (err) {
+      console.error('Error loading entrevistas:', err);
+    } finally {
+      setEntrevistasLoading(false);
+    }
+  };
+
+  const loadItinerario = async () => {
+    if (!spreadsheetId) return;
+    setItinerarioLoading(true);
+    try {
+      const res = await fetch('/api/get-itinerario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setItinerarioForm(result.itinerarios);
+        
+        // Initialize visible rows based on filled items map across years
+        const initialVisible: Record<string, number> = {};
+        const years = Array.from(new Set(result.itinerarios.map((i: any) => i.year)));
+        years.forEach((y: any) => {
+          const yearItems = result.itinerarios.filter((i: any) => i.year === y);
+          // find last index that is not empty
+          let lastFilledIdx = -1;
+          for (let i = 0; i < yearItems.length; i++) {
+             if (!yearItems[i].isEmpty) lastFilledIdx = i;
+          }
+          // Show all filled items + 1 empty slot
+          initialVisible[y] = lastFilledIdx + 2; 
+        });
+        setVisibleItinRows(initialVisible);
+
+        setItinerarioLoaded(true);
+      }
+    } catch (err) {
+      console.error('Error loading itinerario:', err);
+    } finally {
+      setItinerarioLoading(false);
+    }
+  };
+
+  const handleSaveDatos = async () => {
+    setDatosSaving(true);
+    try {
+      const res = await fetch('/api/save-datos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId, datos: datosForm, rowMapping }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+    } catch (err: any) {
+      alert('Error guardando datos: ' + err.message);
+    } finally {
+      setDatosSaving(false);
+    }
+  };
+
+  const handleSaveEntrevistas = async () => {
+    setEntrevistasSaving(true);
+    try {
+      const res = await fetch('/api/save-entrevistas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId, updates: entrevistasForm }),
+      });
+      if (!res.ok) throw new Error('Error al guardar entrevistas');
+    } catch (err: any) {
+      alert('Error guardando entrevistas: ' + err.message);
+    } finally {
+      setEntrevistasSaving(false);
+    }
+  };
+
+  const handleSaveItinerario = async () => {
+    setItinerarioSaving(true);
+    try {
+      const res = await fetch('/api/save-itinerario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId, updates: itinerarioForm }),
+      });
+      if (!res.ok) throw new Error('Error al guardar itinerario');
+    } catch (err: any) {
+      alert('Error guardando itinerario: ' + err.message);
+    } finally {
+      setItinerarioSaving(false);
+    }
+  };
+
+  const handleSectionChange = (key: string) => {
+    setActiveSection(key);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (key === 'Datos' && !datosLoaded && spreadsheetId) {
+      setTimeout(loadDatos, 100);
+    } else if (key === 'Entrevistas' && !entrevistasLoaded && spreadsheetId) {
+      setTimeout(loadEntrevistas, 100);
+    } else if (key === 'Itinerario' && !itinerarioLoaded && spreadsheetId) {
+      setTimeout(loadItinerario, 100);
+    }
+  };
 
   // Expander state
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -383,6 +559,20 @@ export default function Home() {
           <p style={{ color: "#fff", fontSize: "18px", fontWeight: 600, margin: 0 }}>👤 {username}</p>
         </div>
 
+        {/* Main Section Navigation */}
+        <nav className="sidebar-nav">
+          {MAIN_SECTIONS.map(sec => (
+            <button
+              key={sec.key}
+              onClick={() => handleSectionChange(sec.key)}
+              className={`nav-item ${activeSection === sec.key ? 'active' : ''}`}
+            >
+              <span className="nav-icon">{sec.icon}</span>
+              <span className="nav-label">{sec.label}</span>
+            </button>
+          ))}
+        </nav>
+
         <div style={{ flex: 1 }}></div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -414,9 +604,240 @@ export default function Home() {
       {/* Main Content */}
       <main className="app-main">
         <div className="main-header animate-fade-in">
-          <h1>Evaluación de Competencias</h1>
-          <p>Gestiona y actualiza tus progresos en el Programa Oficial de Especialidad</p>
+          <h1>{MAIN_SECTIONS.find(s => s.key === activeSection)?.label || activeSection}</h1>
+          <p>{activeSection === 'Competencias' ? 'Gestiona y actualiza tus progresos en el Programa Oficial de Especialidad' : `Sección ${MAIN_SECTIONS.find(s => s.key === activeSection)?.label}`}</p>
         </div>
+
+        {/* ===== PLACEHOLDER SECTIONS ===== */}
+        {activeSection === 'Datos' && (
+          <div className="datos-form-container animate-fade-in">
+            {datosLoading ? (
+              <div className="section-placeholder">
+                <div className="placeholder-icon" style={{ animation: 'spin 1s linear infinite' }}>⏳</div>
+                <h2>Cargando datos...</h2>
+              </div>
+            ) : (
+              <>
+                {/* UNIDAD DOCENTE */}
+                <div className="datos-group">
+                  <h3 className="datos-group-title">🏥 Unidad Docente</h3>
+                  <div className="datos-fields">
+                    <div className="datos-field">
+                      <label>Nombre</label>
+                      <input type="text" value={datosForm.unidadDocente.nombre} onChange={e => setDatosForm({...datosForm, unidadDocente: {...datosForm.unidadDocente, nombre: e.target.value}})} placeholder="Nombre de la Unidad Docente" />
+                    </div>
+                    <div className="datos-field">
+                      <label>CCAA</label>
+                      <input type="text" value={datosForm.unidadDocente.ccaa} onChange={e => setDatosForm({...datosForm, unidadDocente: {...datosForm.unidadDocente, ccaa: e.target.value}})} placeholder="Comunidad Autónoma" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Año Inicio Residencia</label>
+                      <input type="text" value={datosForm.unidadDocente.anioInicio} onChange={e => setDatosForm({...datosForm, unidadDocente: {...datosForm.unidadDocente, anioInicio: e.target.value}})} placeholder="Ej: 2024" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Año Final Residencia</label>
+                      <input type="text" value={datosForm.unidadDocente.anioFinal} onChange={e => setDatosForm({...datosForm, unidadDocente: {...datosForm.unidadDocente, anioFinal: e.target.value}})} placeholder="Ej: 2028" />
+                    </div>
+                    <div className="datos-field" style={{ gridColumn: '1 / -1' }}>
+                      <label>Email</label>
+                      <input type="email" value={datosForm.unidadDocente.email} onChange={e => setDatosForm({...datosForm, unidadDocente: {...datosForm.unidadDocente, email: e.target.value}})} placeholder="email@unidaddocente.es" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* RESIDENTE */}
+                <div className="datos-group">
+                  <h3 className="datos-group-title">👨‍⚕️ Residente</h3>
+                  <div className="datos-fields">
+                    <div className="datos-field">
+                      <label>Nombre</label>
+                      <input type="text" value={datosForm.residente.nombre} onChange={e => setDatosForm({...datosForm, residente: {...datosForm.residente, nombre: e.target.value}})} placeholder="Nombre" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Apellido 1</label>
+                      <input type="text" value={datosForm.residente.apellido1} onChange={e => setDatosForm({...datosForm, residente: {...datosForm.residente, apellido1: e.target.value}})} placeholder="Primer apellido" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Apellido 2</label>
+                      <input type="text" value={datosForm.residente.apellido2} onChange={e => setDatosForm({...datosForm, residente: {...datosForm.residente, apellido2: e.target.value}})} placeholder="Segundo apellido" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Email</label>
+                      <input type="email" value={datosForm.residente.email} onChange={e => setDatosForm({...datosForm, residente: {...datosForm.residente, email: e.target.value}})} placeholder="email@residente.es" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TUTOR */}
+                <div className="datos-group">
+                  <h3 className="datos-group-title">👩‍🏫 Tutor</h3>
+                  <div className="datos-fields">
+                    <div className="datos-field">
+                      <label>Nombre</label>
+                      <input type="text" value={datosForm.tutor.nombre} onChange={e => setDatosForm({...datosForm, tutor: {...datosForm.tutor, nombre: e.target.value}})} placeholder="Nombre" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Apellido 1</label>
+                      <input type="text" value={datosForm.tutor.apellido1} onChange={e => setDatosForm({...datosForm, tutor: {...datosForm.tutor, apellido1: e.target.value}})} placeholder="Primer apellido" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Apellido 2</label>
+                      <input type="text" value={datosForm.tutor.apellido2} onChange={e => setDatosForm({...datosForm, tutor: {...datosForm.tutor, apellido2: e.target.value}})} placeholder="Segundo apellido" />
+                    </div>
+                    <div className="datos-field">
+                      <label>Email</label>
+                      <input type="email" value={datosForm.tutor.email} onChange={e => setDatosForm({...datosForm, tutor: {...datosForm.tutor, email: e.target.value}})} placeholder="email@tutor.es" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                  <button onClick={handleSaveDatos} className="btn-primary" disabled={datosSaving} style={{ padding: '14px 48px' }}>
+                    {datosSaving ? 'Guardando...' : '💾 Guardar Datos'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {activeSection === 'Entrevistas' && (
+          <div className="datos-form-container animate-fade-in">
+            {entrevistasLoading ? (
+              <div className="section-placeholder">
+                <div className="placeholder-icon" style={{ animation: 'spin 1s linear infinite' }}>⏳</div>
+                <h2>Cargando entrevistas...</h2>
+              </div>
+            ) : (
+              <>
+                {Array.from(new Set(entrevistasForm.map(e => e.year))).map(year => (
+                  <div key={year} className="datos-group">
+                    <h3 className="datos-group-title">📅 {year}</h3>
+                    <div className="datos-fields">
+                      {entrevistasForm.filter(e => e.year === year).map((entrevista, idx) => (
+                        <div key={entrevista.id || idx} className="datos-field">
+                          <label>{entrevista.title}</label>
+                          <input 
+                            type="date" 
+                            value={entrevista.date || ''} 
+                            onChange={(e) => {
+                              const newForms = [...entrevistasForm];
+                              const targetIdx = newForms.findIndex(f => f.rowNum === entrevista.rowNum);
+                              if (targetIdx !== -1) newForms[targetIdx].date = e.target.value;
+                              setEntrevistasForm(newForms);
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                  <button onClick={handleSaveEntrevistas} className="btn-primary" disabled={entrevistasSaving} style={{ padding: '14px 48px' }}>
+                    {entrevistasSaving ? 'Guardando...' : '💾 Guardar Entrevistas'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {activeSection === 'Itinerario' && (
+          <div className="datos-form-container animate-fade-in">
+            {itinerarioLoading ? (
+              <div className="section-placeholder">
+                <div className="placeholder-icon" style={{ animation: 'spin 1s linear infinite' }}>⏳</div>
+                <h2>Cargando itinerario...</h2>
+              </div>
+            ) : (
+              <>
+                {Array.from(new Set(itinerarioForm.map(i => i.year))).map(year => (
+                  <div key={year} className="datos-group" style={{ padding: '24px' }}>
+                    <h3 className="datos-group-title">📍 Rotaciones {year}</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {itinerarioForm.filter(i => i.year === year).slice(0, visibleItinRows[year] || 1).map((itin, idx) => (
+                        <div key={itin.id || idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.5fr) 1fr 1fr 1.5fr', gap: '12px', alignItems: 'center' }}>
+                          <div className="datos-field"><label>Rotación</label>
+                            <input type="text" value={itin.rotacion} placeholder="Añadir rotación" 
+                                   onChange={e => {
+                                     const newF = [...itinerarioForm];
+                                     const iIdx = newF.findIndex(f => f.rowNum === itin.rowNum);
+                                     if (iIdx > -1) newF[iIdx].rotacion = e.target.value;
+                                     setItinerarioForm(newF);
+                                   }} />
+                          </div>
+                          <div className="datos-field"><label>Fecha Inicial</label>
+                            <input type="date" value={itin.fechaInicial} 
+                                   onChange={e => {
+                                     const newF = [...itinerarioForm];
+                                     const iIdx = newF.findIndex(f => f.rowNum === itin.rowNum);
+                                     if (iIdx > -1) newF[iIdx].fechaInicial = e.target.value;
+                                     setItinerarioForm(newF);
+                                   }} />
+                          </div>
+                          <div className="datos-field"><label>Fecha Final</label>
+                            <input type="date" value={itin.fechaFinal} 
+                                   onChange={e => {
+                                     const newF = [...itinerarioForm];
+                                     const iIdx = newF.findIndex(f => f.rowNum === itin.rowNum);
+                                     if (iIdx > -1) newF[iIdx].fechaFinal = e.target.value;
+                                     setItinerarioForm(newF);
+                                   }} />
+                          </div>
+                          <div className="datos-field"><label>Tutor/Colaborador</label>
+                            <input type="text" value={itin.tutor} placeholder="Nombre del tutor" 
+                                   onChange={e => {
+                                     const newF = [...itinerarioForm];
+                                     const iIdx = newF.findIndex(f => f.rowNum === itin.rowNum);
+                                     if (iIdx > -1) newF[iIdx].tutor = e.target.value;
+                                     setItinerarioForm(newF);
+                                   }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Botón para añadir más filas si hay espacio en el array */}
+                    {visibleItinRows[year] < itinerarioForm.filter(i => i.year === year).length && (
+                      <button 
+                        onClick={() => setVisibleItinRows(prev => ({ ...prev, [year]: prev[year] + 1 }))}
+                        className="btn-outline"
+                        style={{ marginTop: '16px', alignSelf: 'flex-start', padding: '8px 16px', fontSize: '13px' }}
+                      >
+                        ➕ Añadir otra rotación
+                      </button>
+                    )}
+                    {visibleItinRows[year] >= itinerarioForm.filter(i => i.year === year).length && (
+                      <div style={{ marginTop: '16px', fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+                        * Has llegado al límite de espacios configurados en el archivo Excel para {year}.
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                  <button onClick={handleSaveItinerario} className="btn-primary" disabled={itinerarioSaving} style={{ padding: '14px 48px' }}>
+                    {itinerarioSaving ? 'Guardando...' : '💾 Guardar Itinerario'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {activeSection === 'Actividades' && (
+          <div className="section-placeholder animate-fade-in">
+            <div className="placeholder-icon">📌</div>
+            <h2>Actividades Obligatorias</h2>
+            <p>Esta sección estará disponible próximamente.</p>
+          </div>
+        )}
+        {activeSection === 'Otros' && (
+          <div className="section-placeholder animate-fade-in">
+            <div className="placeholder-icon">📁</div>
+            <h2>Otros</h2>
+            <p>Esta sección estará disponible próximamente.</p>
+          </div>
+        )}
+
+        {/* ===== COMPETENCIAS SECTION (existing content) ===== */}
+        {activeSection === 'Competencias' && (<>
 
         {/* Horizontal Scrollable Tabs */}
         <div className="tabs-wrapper animate-fade-in" style={{ animationDelay: '0.1s' }}>
@@ -761,6 +1182,7 @@ export default function Home() {
             </form>
           </div>
         )}
+        </>)}
       </main>
 
       {/* Floating Save Bar if there are unsaved changes */}

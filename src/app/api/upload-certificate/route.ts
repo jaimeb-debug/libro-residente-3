@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Pega aquí la misma URL que tienes en build-sheet/route.ts
-const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxujQ0zO0khFwNqrHgsb25R-VtcGzyv4qbrevr4Qy88JHqxTQQ6Sz7bxKgBMiL2GTdKUQ/exec';
+const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwq9iUPNe8l9R54pXjggP6outoLTMAvqxWclfGfOlgX39bNjk4JkiomtTfMD_I0IJDBiQ/exec';
 
 export async function POST(req: Request) {
   try {
