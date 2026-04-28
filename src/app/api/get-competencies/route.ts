@@ -150,8 +150,17 @@ export async function POST(req: Request) {
 
         if (!currentDomain) return;
         if (["N.º", "Nº", "DOMINIO"].includes(a) || b.toUpperCase().includes("COMPETENCIAS")) return;
-        if (!b) return;
-        if (a && a.length > 20 && !b) return;
+
+        const cValue = (c.toLowerCase() !== "none") ? c : "";
+        const isCompetencySheet = !["SESIONES OBLIGATORIAS", "SESIONES IMPARTIDAS", "OTROS CURSOS", "CURSOS", "CONFIG"].includes(sheetName);
+
+        if (isCompetencySheet) {
+          if (!b && !cValue) return;
+          if (a && a.length > 20 && !b && !cValue) return;
+        } else {
+          if (!b) return;
+          if (a && a.length > 20 && !b) return;
+        }
 
         compCounter++;
         
@@ -164,11 +173,19 @@ export async function POST(req: Request) {
           certificateUrl = row[5] || ""; // Col F
         }
 
+        let displayCompetencia = b;
+        let displayActividad = cValue;
+
+        if (isCompetencySheet && !b && cValue) {
+          displayCompetencia = "↳ " + cValue;
+          displayActividad = "";
+        }
+
         domains[currentDomain].push({
           rowIdx,
           number: compCounter,
-          competencia: b,
-          actividad: (c.toLowerCase() !== "none") ? c : "",
+          competencia: displayCompetencia,
+          actividad: displayActividad,
           recomendaciones: (d.toLowerCase() !== "none") ? d : "",
           situacion: (f.toLowerCase() !== "none") ? f : "",
           rotacion: finalRotation,

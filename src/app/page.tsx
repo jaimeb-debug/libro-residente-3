@@ -169,7 +169,7 @@ export default function Home() {
     }
   };
 
-  const handleSaveDatos = async () => {
+  const handleSaveDatos = async (silent = false) => {
     setDatosSaving(true);
     try {
       const res = await fetch('/api/save-datos', {
@@ -186,7 +186,7 @@ export default function Home() {
     }
   };
 
-  const handleSaveEntrevistas = async () => {
+  const handleSaveEntrevistas = async (silent = false) => {
     setEntrevistasSaving(true);
     try {
       const res = await fetch('/api/save-entrevistas', {
@@ -202,7 +202,7 @@ export default function Home() {
     }
   };
 
-  const handleSaveItinerario = async () => {
+  const handleSaveItinerario = async (silent = false) => {
     setItinerarioSaving(true);
     try {
       const res = await fetch('/api/save-itinerario', {
@@ -216,6 +216,30 @@ export default function Home() {
     } finally {
       setItinerarioSaving(false);
     }
+  };
+
+  const handleGlobalSave = async () => {
+    const promises = [];
+    if (Object.keys(updates).length > 0) {
+      promises.push(handleSave(true));
+    }
+    if (datosLoaded) {
+      promises.push(handleSaveDatos(true));
+    }
+    if (entrevistasLoaded) {
+      promises.push(handleSaveEntrevistas(true));
+    }
+    if (itinerarioLoaded) {
+      promises.push(handleSaveItinerario(true));
+    }
+    
+    if (promises.length === 0) {
+      alert("No hay cambios pendientes (de competencias) o paneles cargados. Tus datos guardados están seguros.");
+      return;
+    }
+    
+    await Promise.all(promises);
+    alert('¡Guardado Global Exitoso! Todos los cambios se han volcado a tu archivo.');
   };
 
   const handleSectionChange = (key: string) => {
@@ -527,6 +551,12 @@ export default function Home() {
     : activeTab === "CURSOS"
     ? [...Object.values(data["CURSOS"] || {}).flat(), ...Object.values(data["OTROS CURSOS"] || {}).flat()]
     : Object.values(data[activeTab] || {}).flat() as any[];
+
+  let compsForStats = allCompsInTab;
+  if (activeTab === "Promociónprevención (PAPPS)") {
+    compsForStats = allCompsInTab.filter(c => c.competencia && c.competencia.startsWith("↳ "));
+  }
+
   const getEffectiveStatus = (c: any) => {
     const pending = updates[`${activeTab}::${c.rowIdx}`]?.value;
     if (pending) return pending.toUpperCase();
@@ -534,10 +564,10 @@ export default function Home() {
   };
 
   const stats = {
-    total: allCompsInTab.length,
-    progreso: allCompsInTab.filter(c => getEffectiveStatus(c) === "EN PROGRESO").length,
-    conseguido: allCompsInTab.filter(c => getEffectiveStatus(c) === "CONSEGUIDO").length,
-    no_conseguido: allCompsInTab.filter(c => getEffectiveStatus(c) === "NO CONSEGUIDO").length,
+    total: compsForStats.length,
+    progreso: compsForStats.filter(c => getEffectiveStatus(c) === "EN PROGRESO").length,
+    conseguido: compsForStats.filter(c => getEffectiveStatus(c) === "CONSEGUIDO").length,
+    no_conseguido: compsForStats.filter(c => getEffectiveStatus(c) === "NO CONSEGUIDO").length,
   };
 
   const tabUpdatesCount = Object.keys(updates).filter(k => k.startsWith(`${activeTab}::`)).length;
@@ -691,12 +721,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Save Button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                  <button onClick={handleSaveDatos} className="btn-primary" disabled={datosSaving} style={{ padding: '14px 48px' }}>
-                    {datosSaving ? 'Guardando...' : '💾 Guardar Datos'}
-                  </button>
-                </div>
               </>
             )}
           </div>
@@ -732,11 +756,6 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                  <button onClick={handleSaveEntrevistas} className="btn-primary" disabled={entrevistasSaving} style={{ padding: '14px 48px' }}>
-                    {entrevistasSaving ? 'Guardando...' : '💾 Guardar Entrevistas'}
-                  </button>
-                </div>
               </>
             )}
           </div>
@@ -812,11 +831,6 @@ export default function Home() {
                     )}
                   </div>
                 ))}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                  <button onClick={handleSaveItinerario} className="btn-primary" disabled={itinerarioSaving} style={{ padding: '14px 48px' }}>
-                    {itinerarioSaving ? 'Guardando...' : '💾 Guardar Itinerario'}
-                  </button>
-                </div>
               </>
             )}
           </div>
@@ -851,7 +865,10 @@ export default function Home() {
         {/* Actionable Stats Grid */}
         {activeTab !== "CURSOS" && activeTab !== "SESIONES" && (
           <div className="stats-grid animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <div className="stat-card"><div className="stat-number">{stats.total}</div><div className="stat-label">Competencias</div></div>
+            <div className="stat-card">
+              <div className="stat-number">{stats.total}</div>
+              <div className="stat-label">{activeTab === "Promociónprevención (PAPPS)" ? "Actividades" : "Competencias"}</div>
+            </div>
             <div className="stat-card" style={{ borderColor: stats.progreso > 0 ? 'rgba(251, 191, 36, 0.4)' : '' }}>
               <div className="stat-number" style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', WebkitBackgroundClip: 'text' }}>{stats.progreso}</div>
               <div className="stat-label">En Progreso</div>
@@ -973,11 +990,15 @@ export default function Home() {
                     if (domainName === "Sesiones Impartidas" && (!comp.competencia || comp.competencia.toLowerCase().includes("título"))) return null;
                     if (domainName === "Otros Cursos" && (!comp.competencia || comp.competencia.toLowerCase().includes("título"))) return null;
 
+                    const isSubActivity = comp.competencia?.startsWith("↳ ");
                     return (
                       <div key={rowId}>
-                        <div className="comp-row">
-                          <div className="comp-id">{comp.number}</div>
-                          <div className="comp-title">{comp.competencia}</div>
+                        <div className={`comp-row ${isSubActivity ? 'sub-activity' : ''}`} style={isSubActivity ? { marginLeft: '24px', background: 'rgba(168, 85, 247, 0.05)', borderLeft: '3px solid var(--primary-accent)' } : {}}>
+                          {!isSubActivity && <div className="comp-id">{comp.number}</div>}
+                          <div className="comp-title" style={isSubActivity ? { color: 'rgba(255,255,255,0.85)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' } : {}}>
+                            {isSubActivity ? <span style={{ color: 'var(--primary-accent)', fontSize: '16px' }}>🔸</span> : null}
+                            {isSubActivity ? comp.competencia.replace("↳ ", "") : comp.competencia}
+                          </div>
                           
                           {(domainName === "Sesiones Impartidas" || domainName === "Otros Cursos") ? (
                             <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: 'var(--text-muted)', flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1, marginRight: '10px' }}>
@@ -1011,7 +1032,7 @@ export default function Home() {
                                   {currentStatus === "REALIZADO" ? "REALIZADO" : "PENDIENTE"}
                                 </button>
                               ) : (
-                                SITUACION_OPTIONS.map(opt => {
+                                (isSubActivity ? ["EN PROGRESO", "CONSEGUIDO"] : SITUACION_OPTIONS).map(opt => {
                                   const isActive = currentStatus === opt;
                                   let activeClass = "";
                                   if (isActive && opt === "EN PROGRESO") activeClass = "active-progreso";
@@ -1185,17 +1206,31 @@ export default function Home() {
         </>)}
       </main>
 
-      {/* Floating Save Bar if there are unsaved changes */}
-      {hasUnsavedChanges && (
-        <div className="floating-save-panel animate-fade-in">
-          <div style={{ flex: 1, color: '#f8fafc', fontWeight: 500 }}>
-            <span style={{ color: '#fbbf24', marginRight: '8px' }}>⚠️</span>
-            Tienes {globalUpdatesCount} cambio(s) pendiente(s) de guardar.
-          </div>
-          <button onClick={handleSave} className="btn-primary" disabled={saving || globalUpdatesCount === 0}>
-            {saving ? 'Guardando en la Nube...' : '💾 Guardar Todos los Cambios'}
-          </button>
-        </div>
+      {/* Floating Global Save Button */}
+      {spreadsheetId && (
+        <button 
+          onClick={handleGlobalSave} 
+          className="btn-primary hover-glow animate-fade-in" 
+          disabled={datosSaving || entrevistasSaving || itinerarioSaving || saving}
+          style={{
+            position: 'fixed',
+            bottom: '32px',
+            right: '32px',
+            padding: '16px 28px',
+            fontSize: '16px',
+            fontWeight: '600',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            borderRadius: '100px',
+            transition: 'all 0.3s ease',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}
+        >
+          { (datosSaving || entrevistasSaving || itinerarioSaving || saving) ? '⏳ Guardando todo...' : '💾 Guardar cambios' }
+        </button>
       )}
     </div>
   );
