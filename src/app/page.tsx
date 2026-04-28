@@ -326,7 +326,7 @@ export default function Home() {
     }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (silent = false) => {
     if (Object.keys(updates).length === 0) return;
     setSaving(true);
     try {
