@@ -36,10 +36,8 @@ export async function GET(req: Request) {
       throw new Error(`Google Sheets retornó estado: ${res.status}. ${errorText}`);
     }
 
-    const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    return new NextResponse(buffer, {
+    // Stream the response directly to avoid Vercel's 4.5MB payload limit
+    return new NextResponse(res.body, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
