@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const maxDuration = 60;
 import { google } from 'googleapis';
 // import credentials from '../../../../credentials.json';
 const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
