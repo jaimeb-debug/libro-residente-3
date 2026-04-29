@@ -221,10 +221,10 @@ export default function Home() {
   const handleGlobalSave = async () => {
     const promises = [];
     if (Object.keys(updates).length > 0) {
-      promises.push(handleSave(true));
+      promises.push(handleSave());
     }
     if (datosLoaded) {
-      promises.push(handleSaveDatos(true));
+      promises.push(handleSaveDatos());
     }
     if (entrevistasLoaded) {
       promises.push(handleSaveEntrevistas(true));
