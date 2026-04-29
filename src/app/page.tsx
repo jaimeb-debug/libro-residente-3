@@ -494,7 +494,7 @@ export default function Home() {
               <input 
                 type="text" 
                 value={username} onChange={e => setUsername(e.target.value)} 
-                placeholder="Ejemplo: jaime_bona"
+                placeholder="Ejemplo: laura_gomez"
                 style={{ padding: '16px', borderRadius: '12px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--card-border)', color: 'white', outline: 'none', fontSize: '15px' }}
               />
             </div>
