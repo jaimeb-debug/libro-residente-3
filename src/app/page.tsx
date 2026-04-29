@@ -630,7 +630,7 @@ export default function Home() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = 'Libro_Residente_Export.xlsx';
+                  a.download = `Libro_Residente_${username}.xlsx`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
