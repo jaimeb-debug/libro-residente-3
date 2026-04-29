@@ -622,7 +622,28 @@ export default function Home() {
           </div>
           <div>
             <button
-              onClick={() => { window.location.href = `/api/download-excel?id=${spreadsheetId}`; }}
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/download-excel?id=${spreadsheetId}`);
+                  if (!res.ok) throw new Error('Error en la descarga');
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'Libro_Residente_Export.xlsx';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (err: any) {
+                  // If blob download also blocked by sandbox, try opening in parent window
+                  try {
+                    window.parent.location.href = `/api/download-excel?id=${spreadsheetId}`;
+                  } catch {
+                    window.open(`/api/download-excel?id=${spreadsheetId}`, '_top');
+                  }
+                }
+              }}
               className="btn-success"
               style={{ display: 'block', width: '100%', textAlign: 'center', cursor: 'pointer' }}
             >
