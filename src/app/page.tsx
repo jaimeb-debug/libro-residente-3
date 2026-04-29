@@ -621,9 +621,13 @@ export default function Home() {
             )}
           </div>
           <div>
-            <a href={`/api/download-excel?id=${spreadsheetId}`} className="btn-success" style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}>
+            <button
+              onClick={() => { window.location.href = `/api/download-excel?id=${spreadsheetId}`; }}
+              className="btn-success"
+              style={{ display: 'block', width: '100%', textAlign: 'center', cursor: 'pointer' }}
+            >
               📥 Descargar mi Excel Original
-            </a>
+            </button>
           </div>
           <button onClick={handleLogout} className="btn-outline">
             🚪 Cerrar Sesión de Residente
