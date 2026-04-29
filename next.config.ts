@@ -8,11 +8,11 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self' https://www.udz3c.es;"
+            value: "frame-ancestors 'self' https://udz3c.es https://www.udz3c.es;"
           },
           {
             key: "X-Frame-Options",
-            value: "ALLOW-FROM https://wwww.udz3c.es"
+            value: "ALLOW-FROM https://www.udz3c.es"
           }
         ]
       }
