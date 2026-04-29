@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-export const maxDuration = 60;
 import { google } from 'googleapis';
 // import credentials from '../../../../credentials.json';
 const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
@@ -164,10 +163,10 @@ export async function POST(req: Request) {
         }
 
         compCounter++;
-        
+
         let finalRotation = (j.toLowerCase() !== "none") ? j : "";
         let certificateUrl = "";
-        
+
         if (sheetName === "OTROS CURSOS") {
           // Mapeo: A: Nº, B: Título, C: Fecha, D: Lugar, E: Organizador, F: Certificado
           finalRotation = row[4] || ""; // Col E
