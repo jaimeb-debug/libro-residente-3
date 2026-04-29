@@ -29,13 +29,13 @@ export async function GET(req: Request) {
         fileId: spreadsheetId,
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       },
-      { responseType: 'stream' }
+      { responseType: 'arraybuffer' }
     );
 
-    // Convert Node.js stream to Web ReadableStream for Next.js
-    const stream = Readable.toWeb(res.data as any);
+    // Use ArrayBuffer directly since the file is < 1MB, avoiding Vercel stream issues
+    const buffer = Buffer.from(res.data as ArrayBuffer);
 
-    return new NextResponse(stream as any, {
+    return new NextResponse(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
