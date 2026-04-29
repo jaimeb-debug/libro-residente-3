@@ -621,7 +621,7 @@ export default function Home() {
             )}
           </div>
           <div>
-            <a href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`} target="_blank" className="btn-success" style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}>
+            <a href={`/api/download-excel?id=${spreadsheetId}`} target="_blank" className="btn-success" style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}>
               📥 Descargar mi Excel Original
             </a>
           </div>
