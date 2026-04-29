@@ -17,21 +17,27 @@ export async function GET(req: Request) {
         client_email: credentials.client_email,
         private_key: credentials.private_key,
       },
-      scopes: ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/spreadsheets.readonly'],
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 
-    const authClient = await auth.getClient();
-    const drive = google.drive({ version: 'v3', auth: authClient as any });
+    const authClient = await auth.getClient() as any;
+    const token = await authClient.getAccessToken();
 
-    const res = await drive.files.export(
-      {
-        fileId: spreadsheetId,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      },
-      { responseType: 'arraybuffer' }
-    );
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
+    
+    const res = await fetch(exportUrl, {
+      headers: {
+        Authorization: `Bearer ${token.token}`
+      }
+    });
 
-    const buffer = Buffer.from(res.data as ArrayBuffer);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Google Sheets retornó estado: ${res.status}. ${errorText}`);
+    }
+
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     return new NextResponse(buffer, {
       status: 200,
@@ -42,6 +48,6 @@ export async function GET(req: Request) {
     });
   } catch (error: any) {
     console.error('Error descargando Excel:', error);
-    return NextResponse.json({ error: 'Error descargando archivo', details: error.message }, { status: 500 });
+    return new NextResponse(`Error descargando archivo: ${error.message}`, { status: 500 });
   }
 }
