@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
 
@@ -17,27 +18,24 @@ export async function GET(req: Request) {
         client_email: credentials.client_email,
         private_key: credentials.private_key,
       },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      scopes: ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 
-    const authClient = await auth.getClient() as any;
-    const token = await authClient.getAccessToken();
+    const authClient = await auth.getClient();
+    const drive = google.drive({ version: 'v3', auth: authClient as any });
 
-    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
-    
-    const res = await fetch(exportUrl, {
-      headers: {
-        Authorization: `Bearer ${token.token}`
-      }
-    });
+    const res = await drive.files.export(
+      {
+        fileId: spreadsheetId,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      { responseType: 'stream' }
+    );
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Google Sheets retornó estado: ${res.status}. ${errorText}`);
-    }
+    // Convert Node.js stream to Web ReadableStream for Next.js
+    const stream = Readable.toWeb(res.data as any);
 
-    // Stream the response directly to avoid Vercel's 4.5MB payload limit
-    return new NextResponse(res.body, {
+    return new NextResponse(stream as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
